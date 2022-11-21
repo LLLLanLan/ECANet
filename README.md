@@ -15,9 +15,9 @@ Recently, channel attention mechanism has demonstrated to offer great potential 
        title={ECA-Net: Efficient Channel Attention for Deep Convolutional Neural Networks},
        author={Qilong Wang, Banggu Wu, Pengfei Zhu, Peihua Li, Wangmeng Zuo and Qinghua Hu},
        booktitle = {The IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-       year={2020}
+！       year={2020}
      }
-
+########################################################
 ## Changelog
 2020/02/26 Upload ECA-Resnet34 model.
 
