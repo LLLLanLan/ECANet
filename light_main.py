@@ -21,24 +21,24 @@ import models
 from thop import profile
 
 model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+                     if name.islower() and not name.startswith("__")
+                     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR',
+parser.add_argument('--data', metavar='DIR', default='../DeepFashionCode/dataset',
                     help='path to dataset')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet18)')
+                         ' | '.join(model_names) +
+                         ' (default: resnet18)')
 parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=400, type=int, metavar='N',
+parser.add_argument('--epochs', default=20, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=96, type=int,
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
 parser.add_argument('--lr', '--learning-rate', default=0.045, type=float,
                     metavar='LR', help='initial learning rate')
@@ -66,7 +66,6 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 parser.add_argument('--action', default='', type=str,
                     help='other information.')
-                    
 
 best_prec1 = 0
 
@@ -101,6 +100,7 @@ def main():
         model = models.__dict__[args.arch](pretrained=True)
     else:
         print("=> creating model '{}'".format(args.arch))
+        print(models.__dict__)
         model = models.__dict__[args.arch]()
 
     if args.gpu is not None:
@@ -124,7 +124,7 @@ def main():
     with torch.cuda.device(0):
         net = models.__dict__[args.arch]()
         # flops, params = get_model_complexity_info(net, (3, 224, 224), as_strings=True, print_per_layer_stat=True)
-        flops, params = profile(net, inputs=(torch.randn(1,3,224,224),))
+        flops, params = profile(net, inputs=(torch.randn(1, 3, 224, 224),))
         print('Flops:  ' + str(flops))
         print('Params: ' + str(params))
         del net, flops, params
@@ -155,7 +155,7 @@ def main():
 
     # Data loading code
     traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
+    valdir = os.path.join(args.data, 'validation')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
@@ -189,12 +189,12 @@ def main():
 
     if args.evaluate:
         m = time.time()
-        _, _ =validate(val_loader, model, criterion)
+        _, _ = validate(val_loader, model, criterion)
         n = time.time()
-        print((n-m)/3600)
+        print((n - m) / 3600)
         return
-    
-    directory = "runs/%s/"%(args.arch + '_' + args.action)
+
+    directory = "runs/%s/" % (args.arch + '_' + args.action)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -231,9 +231,9 @@ def main():
             'arch': args.arch,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-            'optimizer' : optimizer.state_dict(),
+            'optimizer': optimizer.state_dict(),
         }, is_best)
-        
+
         # 将Loss,train_prec1,train_prec5,val_prec1,val_prec5用.txt的文件存起来
         data_save(directory + 'Loss_plot.txt', Loss_plot)
         data_save(directory + 'train_prec1.txt', train_prec1_plot)
@@ -269,6 +269,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # compute output
         output = model(input)
+        print('output shape  jjjjjjj:', output.shape)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -291,11 +292,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-     
+
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   epoch, i, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses, top1=top1, top5=top5))
+                epoch, i, len(train_loader), batch_time=batch_time,
+                data_time=data_time, loss=losses, top1=top1, top5=top5))
             losses_batch[epoch] = losses.avg
             loss_batch = open("loss_batch.txt", 'a')
             for line in losses_batch:
@@ -341,8 +342,8 @@ def validate(val_loader, model, criterion):
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                       'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                       i, len(val_loader), batch_time=batch_time, loss=losses,
-                       top1=top1, top5=top5))
+                    i, len(val_loader), batch_time=batch_time, loss=losses,
+                    top1=top1, top5=top5))
 
         print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
               .format(top1=top1, top5=top5))
@@ -351,8 +352,8 @@ def validate(val_loader, model, criterion):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    directory = "runs/%s/"%(args.arch + '_' + args.action)
-    
+    directory = "runs/%s/" % (args.arch + '_' + args.action)
+
     filename = directory + filename
     torch.save(state, filename)
     if is_best:
@@ -361,6 +362,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -398,7 +400,7 @@ def accuracy(output, target, topk=(1,)):
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            correct_k = correct[:k].contiguous().view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 

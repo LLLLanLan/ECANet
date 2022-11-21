@@ -2,6 +2,7 @@ import torch.nn as nn
 import math
 # import torch.utils.model_zoo as model_zoo
 from .eca_module import eca_layer
+from torch.nn import functional as F
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -10,9 +11,10 @@ def conv3x3(in_planes, out_planes, stride=1):
                      padding=1, bias=False)
 
 
+
+#######    ECA残差块
 class ECABasicBlock(nn.Module):
     expansion = 1
-
     def __init__(self, inplanes, planes, stride=1, downsample=None, k_size=3):
         super(ECABasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
@@ -43,8 +45,53 @@ class ECABasicBlock(nn.Module):
         return out
 
 
+######     基础残差块
+class RestNetBasicBlock(nn.Module):
+    """
+    layers.append(block(self.inplanes, planes, stride, downsample, k_size))
+    """
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None, k_size=3):
+
+        super(RestNetBasicBlock, self).__init__()
+        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(planes, planes, 1)
+        self.bn2 = nn.BatchNorm2d(planes)
+        # self.eca = eca_layer(planes, k_size)
+        self.downsample = downsample
+        self.stride = stride
+
+
+    def forward(self, x):
+
+        residual = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        # out = self.eca(out)  #  仅仅比ECA残差块少了这里
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
+
+
 class ECABottleneck(nn.Module):
     expansion = 4
+    """
+    block(self.inplanes, planes, stride, downsample, k_size)
+    """
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, k_size=3):
         super(ECABottleneck, self).__init__()
@@ -76,6 +123,7 @@ class ECABottleneck(nn.Module):
         out = self.eca(out)
 
         if self.downsample is not None:
+            # print('哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈')
             residual = self.downsample(x)
 
         out += residual
@@ -85,6 +133,9 @@ class ECABottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
+    """
+    ResNet(ECABasicBlock, [2, 2, 2, 2], num_classes=num_classes, k_size=k_size)
+    """
 
     def __init__(self, block, layers, num_classes=1000, k_size=[3, 3, 3, 3]):
         self.inplanes = 64
@@ -111,6 +162,7 @@ class ResNet(nn.Module):
 
     def _make_layer(self, block, planes, blocks, k_size, stride=1):
         downsample = None
+        print('block',block)
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
@@ -119,6 +171,9 @@ class ResNet(nn.Module):
             )
 
         layers = []
+
+        #  downsample 是残差映射
+        # (self, in_channels, out_channels, stride)
         layers.append(block(self.inplanes, planes, stride, downsample, k_size))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
@@ -134,24 +189,41 @@ class ResNet(nn.Module):
 
         x = self.layer1(x)
         x = self.layer2(x)
+        print('x', x.shape)
         x = self.layer3(x)
+        print('x', x.shape)
         x = self.layer4(x)
+        print('x',x.shape)
 
         x = self.avgpool(x)
+        print('x', x.shape)
         x = x.view(x.size(0), -1)
+        print('x', x.shape)
         x = self.fc(x)
 
         return x
 
 
-def eca_resnet18(k_size=[3, 3, 3, 3], num_classes=1_000, pretrained=False):
+# ResNet 18
+def resnet18(k_size=[3, 3, 3, 3], num_classes=1_000, pretrained=False):
     """Constructs a ResNet-18 model.
+    """
+    model = ResNet(RestNetBasicBlock,[2, 2, 2, 2], num_classes=num_classes, k_size=k_size)
+    model.avgpool = nn.AdaptiveAvgPool2d(1)
+
+    return model
+
+
+def eca_resnet18(k_size=[3, 3, 3, 3], num_classes=1_000, pretrained=False):
+    """
+    Constructs a ResNet-18 model with ECA
 
     Args:
         k_size: Adaptive selection of kernel size
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         num_classes:The classes of classification
     """
+    # print('block ECABasicBlock',ECABasicBlock.expansion)
     model = ResNet(ECABasicBlock, [2, 2, 2, 2], num_classes=num_classes, k_size=k_size)
     model.avgpool = nn.AdaptiveAvgPool2d(1)
     return model
